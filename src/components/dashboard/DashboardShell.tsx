@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bot,
   Compass,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   Map,
@@ -29,6 +30,7 @@ interface DashboardShellProps {
 
 const TAB_LABELS: Record<DashboardTab, string> = {
   overview: 'Overview',
+  academic: 'Academic Learning',
   skills: 'Skill Analysis',
   careers: 'Career Explorer',
   roadmap: 'Learning Roadmap',
@@ -53,6 +55,7 @@ export function DashboardShell({
 
   const navItems: { id: DashboardTab; label: string; icon: React.ReactNode }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
+    { id: 'academic', label: 'Academic Learning', icon: <GraduationCap className="h-4 w-4" /> },
     { id: 'skills', label: 'Skill Analysis', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'careers', label: 'Career Explorer', icon: <Compass className="h-4 w-4" /> },
     { id: 'roadmap', label: 'Learning Roadmap', icon: <Map className="h-4 w-4" /> },

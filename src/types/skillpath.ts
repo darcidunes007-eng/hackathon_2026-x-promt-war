@@ -4,6 +4,7 @@ export type WorkspaceMode = 'landing' | 'auth' | 'demo-student' | 'demo-admin' |
 
 export type DashboardTab =
   | 'overview'
+  | 'academic'
   | 'skills'
   | 'careers'
   | 'roadmap'
@@ -140,3 +141,185 @@ export interface AdminStudentSummary {
   roadmapPercent: number;
   weeklyStudyHours: number;
 }
+
+// === Academic Learning Centre Domain Types ===
+
+export type AcademicLearningSection =
+  | 'overview'
+  | 'subjects'
+  | 'materials'
+  | 'assistant'
+  | 'assessments'
+  | 'practice'
+  | 'performance'
+  | 'planner'
+  | 'weakness';
+
+export type AcademicSubjectCategory =
+  | 'Mathematics'
+  | 'Physics'
+  | 'Chemistry'
+  | 'Computer Science'
+  | 'Programming'
+  | 'Artificial Intelligence'
+  | 'Data Science'
+  | 'English'
+  | 'Other';
+
+export interface AcademicSubject {
+  id: string;
+  uid: string;
+  name: string;
+  category: AcademicSubjectCategory;
+  description: string;
+  linkedSkillId: SkillCategoryId;
+  examDate?: string;
+  targetGrade?: string;
+  isDemo?: boolean;
+  createdAtLabel?: string;
+}
+
+export interface AcademicChapter {
+  id: string;
+  uid: string;
+  subjectId: string;
+  orderIndex: number;
+  title: string;
+  topics: string[];
+  learningObjectives: string[];
+  importantConcepts: string[];
+  completed: boolean;
+  estimatedHours: number;
+}
+
+export type StudyMaterialFormat =
+  | 'Explanation'
+  | 'Detailed Notes'
+  | 'Definitions'
+  | 'Formula Sheet'
+  | 'Concept Summary'
+  | 'Revision Notes'
+  | 'Real-World Examples'
+  | 'Frequently Tested'
+  | 'Practice Questions'
+  | 'Chapter Summary'
+  | 'Uploaded Document'
+  | 'Reference Link'
+  | 'Video Resource';
+
+export type ExplanationLevel =
+  | 'Beginner'
+  | 'Intermediate'
+  | 'Advanced'
+  | 'Exam Preparation';
+
+export interface StudyMaterialItem {
+  id: string;
+  uid: string;
+  subjectId: string;
+  chapterId?: string;
+  topic: string;
+  title: string;
+  format: StudyMaterialFormat;
+  level: ExplanationLevel;
+  content: string;
+  externalUrl?: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  sourceType: 'student_upload' | 'student_note' | 'ai_generated';
+  aiDisclaimer?: string;
+  createdAtLabel: string;
+}
+
+export type AcademicQuestionType =
+  | 'mcq'
+  | 'multiple_select'
+  | 'short_answer'
+  | 'long_answer'
+  | 'numerical'
+  | 'conceptual';
+
+export type AcademicDifficulty = 'Beginner' | 'Intermediate' | 'Advanced' | 'Exam';
+
+export interface AcademicQuestion {
+  id: string;
+  type: AcademicQuestionType;
+  topic: string;
+  difficulty: AcademicDifficulty;
+  prompt: string;
+  options?: string[];
+  correctOptionIndex?: number;
+  correctOptionIndices?: number[];
+  correctNumericalAnswer?: number;
+  numericalTolerance?: number;
+  referenceAnswer?: string;
+  keyPoints?: string[];
+  explanation: string;
+  aiGenerated?: boolean;
+}
+
+export interface AcademicQuestionResponseReview {
+  questionId: string;
+  prompt: string;
+  type: AcademicQuestionType;
+  topic: string;
+  difficulty: AcademicDifficulty;
+  userAnswerLabel: string;
+  expectedAnswerLabel: string;
+  isCorrect: boolean;
+  needsHumanReview: boolean;
+  scoreRatio: number; // 0..1
+  feedback: string;
+  explanation: string;
+}
+
+export interface AcademicAssessmentResult {
+  id: string;
+  uid: string;
+  subjectId: string;
+  subjectName: string;
+  chapterId?: string;
+  chapterTitle?: string;
+  linkedSkillId: SkillCategoryId;
+  mode: 'chapter_test' | 'subject_test' | 'timed_practice';
+  difficulty: AcademicDifficulty;
+  totalQuestions: number;
+  correctCount: number;
+  scorePercent: number;
+  durationMinutes: number;
+  requiresHumanReview: boolean;
+  weakTopics: string[];
+  reviews: AcademicQuestionResponseReview[];
+  createdAtLabel: string;
+}
+
+export interface StudyPlannerSession {
+  id: string;
+  uid: string;
+  subjectId: string;
+  subjectName: string;
+  chapterId?: string;
+  chapterTitle?: string;
+  title: string;
+  sessionType: 'study' | 'revision' | 'exam_prep' | 'practice';
+  scheduledDate: string; // YYYY-MM-DD
+  durationMinutes: number;
+  completed: boolean;
+  priority: 'recommended' | 'standard';
+}
+
+export interface AcademicProgressSummary {
+  id: string; // subjectId
+  uid: string;
+  subjectId: string;
+  subjectName: string;
+  linkedSkillId: SkillCategoryId;
+  assessmentsCompleted: number;
+  averageAccuracy: number;
+  latestScorePercent: number;
+  completedChapters: number;
+  totalChapters: number;
+  weakTopics: string[];
+  updatedAtLabel: string;
+}
+

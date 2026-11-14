@@ -1,12 +1,15 @@
-import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { SKILL_CATEGORIES } from '../../data/curriculum';
 import { auth } from '../../lib/firebase';
 import type {
+  AcademicProgressSummary,
   SkillAssessmentRecord,
   SkillCategoryId,
   StudentProfile,
 } from '../../types/skillpath';
+import type { AcademicWeaknessSummary } from '../../utils/academicAnalytics';
+import { postJson } from '../../utils/apiClient';
 import {
   calculateAverageSkillScore,
   calculateOverallReadiness,
@@ -19,7 +22,10 @@ import { AssessmentTrendChart, SkillRadarChart } from '../ui/SkillCharts';
 interface SkillAnalysisViewProps {
   profile: StudentProfile;
   assessments: SkillAssessmentRecord[];
+  academicInsights?: AcademicWeaknessSummary;
+  academicProgress?: AcademicProgressSummary[];
   isDemo: boolean;
+  onOpenAcademicWeakness?: () => void;
   onSaveAssessment: (
     updatedScores: Record<SkillCategoryId, number>,
     overallScore: number,
@@ -37,7 +43,10 @@ interface GeminiSkillInsight {
 export function SkillAnalysisView({
   profile,
   assessments,
+  academicInsights,
+  academicProgress = [],
   isDemo,
+  onOpenAcademicWeakness,
   onSaveAssessment,
 }: SkillAnalysisViewProps) {
   const [draftScores, setDraftScores] = useState<Record<SkillCategoryId, number>>(
@@ -48,6 +57,10 @@ export function SkillAnalysisView({
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightError, setInsightError] = useState<string | null>(null);
   const [insight, setInsight] = useState<GeminiSkillInsight | null>(null);
+
+  useEffect(() => {
+    setDraftScores({ ...profile.skillScores });
+  }, [profile.skillScores]);
 
   const career = getCareerById(profile.selectedCareerId);
   const readiness = calculateOverallReadiness(draftScores, career);
@@ -80,16 +93,15 @@ export function SkillAnalysisView({
     setInsightLoading(true);
     setInsightError(null);
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {};
       if (!isDemo && auth.currentUser) {
         const token = await auth.currentUser.getIdToken();
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const res = await fetch('/api/ai/skill-insight', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      const data = await postJson<GeminiSkillInsight>(
+        '/api/ai/skill-insight',
+        {
           mode: isDemo ? 'demo' : 'live',
           studentContext: {
             displayName: profile.displayName,
@@ -102,15 +114,19 @@ export function SkillAnalysisView({
             skillScores: draftScores,
             completedMilestones: profile.completedMilestones,
             careerInterests: profile.careerInterests,
+            academicContext: academicInsights?.weakSubjects[0]
+              ? {
+                  subjectName: academicInsights.weakSubjects[0].subjectName,
+                  subjectCategory: academicInsights.weakSubjects[0].category,
+                  weakTopics: academicInsights.weakSubjects[0].weakTopics,
+                }
+              : undefined,
           },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Unable to generate Gemini skill insight.');
-      }
-      setInsight(data as GeminiSkillInsight);
+        },
+        headers,
+        'Unable to generate Gemini skill insight.'
+      );
+      setInsight(data);
     } catch (err) {
       setInsightError(
         err instanceof Error ? err.message : 'Unable to reach Gemini diagnostic endpoint.'
@@ -290,6 +306,66 @@ export function SkillAnalysisView({
           </div>
         </SurfaceCard>
       </div>
+
+      {/* Academic Learning Telemetry Integration */}
+      {academicInsights && (
+        <SurfaceCard className="p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-base font-semibold text-[#F7F3EA]">
+                Academic Learning &amp; Subject Assessment Telemetry
+              </h3>
+              <p className="text-xs text-[#AAA6A0]">
+                Real subject assessment accuracy calibrated directly into your linked Skill Analysis pillars
+              </p>
+            </div>
+            {onOpenAcademicWeakness && (
+              <Button size="sm" variant="secondary" onClick={onOpenAcademicWeakness}>
+                Open Academic Weakness Analysis
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-lg border border-[rgba(212,175,112,0.14)] bg-[#11121A] p-4">
+              <p className="text-xs text-[#AAA6A0]">Academic Assessment Accuracy</p>
+              <p className="mt-1 font-mono-tabular text-2xl font-semibold text-[#F5D78E]">
+                {academicInsights.overallAccuracy !== null
+                  ? `${academicInsights.overallAccuracy}%`
+                  : 'Unassessed'}
+              </p>
+              <p className="mt-1 text-xs text-[#7D7973]">
+                {academicInsights.strongSubjects.length} strong ·{' '}
+                {academicInsights.weakSubjects.length} weak subject
+                {academicInsights.weakSubjects.length === 1 ? '' : 's'}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-[rgba(212,175,112,0.14)] bg-[#11121A] p-4">
+              <p className="text-xs text-[#AAA6A0]">Top Academic Friction</p>
+              <p className="mt-1 font-display text-sm font-semibold text-[#F7F3EA]">
+                {academicInsights.weakSubjects[0]?.subjectName ?? 'No weak subjects flagged'}
+              </p>
+              <p className="mt-1 text-xs text-[#7D7973]">
+                {academicInsights.weakSubjects[0]?.weakTopics[0]
+                  ? `Missed concept: ${academicInsights.weakSubjects[0].weakTopics[0]}`
+                  : 'Complete chapter assessments to surface weak concepts'}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-[rgba(212,175,112,0.14)] bg-[#11121A] p-4">
+              <p className="text-xs text-[#AAA6A0]">Tracked Subject Syncs</p>
+              <p className="mt-1 font-mono-tabular text-2xl font-semibold text-[#F7F3EA]">
+                {academicProgress.length}
+              </p>
+              <p className="mt-1 text-xs text-[#7D7973]">
+                Subjects linked to 6 competency pillars
+              </p>
+            </div>
+          </div>
+        </SurfaceCard>
+      )}
 
       {/* Interactive Diagnostic Calibration */}
       <SurfaceCard className="p-6">

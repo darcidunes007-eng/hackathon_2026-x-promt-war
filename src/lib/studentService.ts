@@ -30,6 +30,7 @@ import type {
   SkillCategoryId,
   StudentProfile,
 } from '../types/skillpath';
+import { parseJsonResponse } from '../utils/apiClient';
 import {
   calculateOverallReadiness,
   calculateRoadmapProgress,
@@ -456,8 +457,10 @@ export async function verifyServerAdminSession(user: User): Promise<boolean> {
         Authorization: `Bearer ${idToken}`,
       },
     });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { authorized?: boolean };
+    const data = await parseJsonResponse<{ authorized?: boolean }>(
+      res,
+      'Unable to verify admin session.'
+    );
     return Boolean(data.authorized);
   } catch {
     return false;

@@ -8,6 +8,7 @@ import type {
   MentorSession,
   StudentProfile,
 } from '../../types/skillpath';
+import { postJson } from '../../utils/apiClient';
 import {
   calculateOverallReadiness,
   calculateRoadmapProgress,
@@ -129,16 +130,22 @@ export function AiMentorView({
     setSending(true);
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {};
       if (!isDemo && auth.currentUser) {
         const token = await auth.currentUser.getIdToken();
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const res = await fetch('/api/ai/mentor', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      const data = await postJson<{
+        agentUsed?: Exclude<MentorAgentRole, 'orchestrator'>;
+        agentLabel?: string;
+        coordinationSummary?: string;
+        reply: string;
+        actionableSteps?: string[];
+        followUpQuestions?: string[];
+      }>(
+        '/api/chat',
+        {
           mode: isDemo ? 'demo' : 'live',
           message: clean,
           agentRole: selectedAgent,
@@ -159,13 +166,10 @@ export function AiMentorView({
             completedMilestones: profile.completedMilestones,
             careerInterests: profile.careerInterests,
           },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Gemini AI Mentor request failed.');
-      }
+        },
+        headers,
+        'Gemini AI Mentor request failed.'
+      );
 
       const agentTurn: MentorMessage = {
         id: `msg-${Date.now()}-a`,

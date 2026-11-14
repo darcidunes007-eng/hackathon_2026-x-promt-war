@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, Plus } from 'lucide-react';
+import { ArrowRight, Check, GraduationCap, Plus } from 'lucide-react';
 import { CAREER_PATHWAYS } from '../../data/curriculum';
 import type {
   ActivityEntry,
@@ -20,6 +20,12 @@ import { SkillRadarChart } from '../ui/SkillCharts';
 interface StudentOverviewProps {
   profile: StudentProfile;
   activity: ActivityEntry[];
+  academicSummary?: {
+    subjectsCount: number;
+    assessmentsCount: number;
+    overallAccuracy: number | null;
+    weakSubjectName?: string;
+  };
   onNavigate: (tab: DashboardTab) => void;
   onUpdateGoals: (goals: LearningGoal[]) => Promise<void>;
 }
@@ -27,6 +33,7 @@ interface StudentOverviewProps {
 export function StudentOverview({
   profile,
   activity,
+  academicSummary,
   onNavigate,
   onUpdateGoals,
 }: StudentOverviewProps) {
@@ -146,6 +153,40 @@ export function StudentOverview({
           <p className="mt-1 text-xs text-[#7D7973]">Dedicated weekly focus budget</p>
         </SurfaceCard>
       </section>
+
+      {academicSummary && (
+        <SurfaceCard className="p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[rgba(212,175,112,0.28)] bg-[#11121A] text-[#D4AF70]">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h3 className="font-display text-sm font-semibold text-[#F7F3EA]">
+                  Academic Learning Centre
+                </h3>
+                <p className="text-xs text-[#AAA6A0]">
+                  {academicSummary.subjectsCount} active subject
+                  {academicSummary.subjectsCount === 1 ? '' : 's'} ·{' '}
+                  {academicSummary.assessmentsCount} academic assessment
+                  {academicSummary.assessmentsCount === 1 ? '' : 's'}
+                  {academicSummary.overallAccuracy !== null
+                    ? ` · ${academicSummary.overallAccuracy}% mean accuracy`
+                    : ''}
+                  {academicSummary.weakSubjectName
+                    ? ` · Focus needed: ${academicSummary.weakSubjectName}`
+                    : ''}
+                </p>
+              </div>
+            </div>
+
+            <Button size="sm" variant="secondary" onClick={() => onNavigate('academic')}>
+              Open Academic Learning
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </SurfaceCard>
+      )}
 
       {/* Skill Development Summary & Career Recommendations */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">

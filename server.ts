@@ -5,9 +5,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   GeminiServiceError,
+  evaluateSubjectiveAnswers,
+  generateAcademicAssessment,
   generateAdaptiveRoadmap,
   generateMentorResponse,
   generateSkillInsight,
+  generateStudyMaterial,
   validateMentorInput,
   type StudentContextPayload,
 } from './server/gemini.ts';
@@ -124,22 +127,55 @@ async function startServer() {
   });
 
   app.post('/api/auth/verify-admin', async (req, res) => {
-    const user = await resolveAuthHeader(req);
-    if (!user) {
-      res.status(401).json({ authorized: false, error: 'Valid Firebase session required.' });
-      return;
-    }
-    if (!user.emailVerified) {
-      res.status(403).json({ authorized: false, error: 'Verified email required for admin access.' });
-      return;
-    }
+    try {
+      const user = await resolveAuthHeader(req);
+      if (!user) {
+        res.status(401).json({ authorized: false, error: 'Valid Firebase session required.' });
+        return;
+      }
+      if (!user.emailVerified) {
+        res.status(403).json({ authorized: false, error: 'Verified email required for admin access.' });
+        return;
+      }
 
-    const isAuthorized = BOOTSTRAPPED_ADMIN_EMAILS.has(user.email.toLowerCase());
-    res.json({
-      authorized: isAuthorized,
-      uid: user.uid,
-      role: isAuthorized ? 'admin' : 'student',
-    });
+      const isAuthorized = BOOTSTRAPPED_ADMIN_EMAILS.has(user.email.toLowerCase());
+      res.json({
+        authorized: isAuthorized,
+        uid: user.uid,
+        role: isAuthorized ? 'admin' : 'student',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify admin session.';
+      res.status(500).json({ authorized: false, error: message, code: 'INTERNAL_ERROR' });
+    }
+  });
+
+  app.post('/api/chat', aiRateLimiter, async (req, res) => {
+    try {
+      const isLiveMode = req.body?.mode === 'live';
+      const hasAuthHeader = Boolean(req.headers.authorization);
+      if (isLiveMode || hasAuthHeader) {
+        const user = await resolveAuthHeader(req);
+        if (!user) {
+          res.status(401).json({
+            error: 'Authentication required for live AI chat requests.',
+            code: 'UNAUTHORIZED',
+          });
+          return;
+        }
+      }
+
+      const validated = validateMentorInput(req.body);
+      const result = await generateMentorResponse(validated);
+      res.json(result);
+    } catch (error) {
+      if (error instanceof GeminiServiceError) {
+        res.status(error.statusCode).json({ error: error.message, code: error.code });
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Unexpected chat error.';
+      res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
+    }
   });
 
   app.post('/api/ai/mentor', aiRateLimiter, async (req, res) => {
@@ -210,8 +246,136 @@ async function startServer() {
         res.status(error.statusCode).json({ error: error.message, code: error.code });
         return;
       }
-      res.status(500).json({ error: 'Unexpected roadmap synthesis error.', code: 'INTERNAL_ERROR' });
+      const message = error instanceof Error ? error.message : 'Unexpected roadmap synthesis error.';
+      res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
     }
+  });
+
+  app.post('/api/ai/study-material', aiRateLimiter, async (req, res) => {
+    try {
+      const isDemo = req.body?.mode === 'demo';
+      if (!isDemo) {
+        const user = await resolveAuthHeader(req);
+        if (!user) {
+          res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHORIZED' });
+          return;
+        }
+      }
+
+      const result = await generateStudyMaterial({
+        subjectName: String(req.body?.subjectName ?? ''),
+        subjectCategory: String(req.body?.subjectCategory ?? 'General'),
+        chapterTitle: typeof req.body?.chapterTitle === 'string' ? req.body.chapterTitle : undefined,
+        topic: String(req.body?.topic ?? ''),
+        level: req.body?.level || 'Intermediate',
+        format: String(req.body?.format ?? 'Detailed Notes'),
+        sourceMaterialExcerpt:
+          typeof req.body?.sourceMaterialExcerpt === 'string'
+            ? req.body.sourceMaterialExcerpt
+            : undefined,
+      });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof GeminiServiceError) {
+        res.status(error.statusCode).json({ error: error.message, code: error.code });
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Unable to generate study material.';
+      res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
+    }
+  });
+
+  app.post('/api/ai/assessment-generate', aiRateLimiter, async (req, res) => {
+    try {
+      const isDemo = req.body?.mode === 'demo';
+      if (!isDemo) {
+        const user = await resolveAuthHeader(req);
+        if (!user) {
+          res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHORIZED' });
+          return;
+        }
+      }
+
+      const result = await generateAcademicAssessment({
+        subjectName: String(req.body?.subjectName ?? ''),
+        subjectCategory: String(req.body?.subjectCategory ?? 'General'),
+        chapterTitle: typeof req.body?.chapterTitle === 'string' ? req.body.chapterTitle : undefined,
+        topics: Array.isArray(req.body?.topics) ? req.body.topics.map(String) : undefined,
+        difficulty: req.body?.difficulty || 'Intermediate',
+        questionCount: Number(req.body?.questionCount) || 4,
+        questionTypes: Array.isArray(req.body?.questionTypes) ? req.body.questionTypes : ['mcq'],
+        sourceMaterialExcerpt:
+          typeof req.body?.sourceMaterialExcerpt === 'string'
+            ? req.body.sourceMaterialExcerpt
+            : undefined,
+      });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof GeminiServiceError) {
+        res.status(error.statusCode).json({ error: error.message, code: error.code });
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : 'Unable to generate academic assessment.';
+      res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
+    }
+  });
+
+  app.post('/api/ai/assessment-evaluate', aiRateLimiter, async (req, res) => {
+    try {
+      const isDemo = req.body?.mode === 'demo';
+      if (!isDemo) {
+        const user = await resolveAuthHeader(req);
+        if (!user) {
+          res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHORIZED' });
+          return;
+        }
+      }
+
+      const result = await evaluateSubjectiveAnswers({
+        subjectName: String(req.body?.subjectName ?? 'Academic Subject'),
+        items: Array.isArray(req.body?.items) ? req.body.items : [],
+      });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof GeminiServiceError) {
+        res.status(error.statusCode).json({ error: error.message, code: error.code });
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : 'Unable to evaluate subjective responses.';
+      res.status(500).json({ error: message, code: 'INTERNAL_ERROR' });
+    }
+  });
+
+  // Ensure unmatched /api/* routes ALWAYS return JSON rather than falling through to HTML.
+  app.use('/api', (req, res) => {
+    res.status(404).json({
+      error: `API route not found: ${req.method} ${req.originalUrl}`,
+      code: 'NOT_FOUND',
+    });
+  });
+
+  // Ensure Express body-parser errors (e.g. invalid JSON) and uncaught /api errors ALWAYS return JSON.
+  app.use('/api', (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (res.headersSent) return;
+    const status =
+      typeof err === 'object' &&
+      err !== null &&
+      'status' in err &&
+      typeof (err as { status?: unknown }).status === 'number'
+        ? (err as { status: number }).status
+        : 500;
+    const message =
+      err instanceof SyntaxError
+        ? 'Invalid JSON in request body.'
+        : err instanceof Error
+          ? err.message
+          : 'Internal server error.';
+    res.status(status).json({
+      error: message,
+      code: status === 400 ? 'BAD_JSON' : 'INTERNAL_ERROR',
+    });
   });
 
   const isProd = process.env.NODE_ENV === 'production';

@@ -19,6 +19,14 @@ export interface StudentContextPayload {
   skillScores?: Record<string, number>;
   completedMilestones?: string[];
   careerInterests?: string[];
+  academicContext?: {
+    subjectName?: string;
+    subjectCategory?: string;
+    chapterTitle?: string;
+    topic?: string;
+    weakTopics?: string[];
+    sourceExcerpt?: string;
+  };
 }
 
 export interface MentorRequestPayload {
@@ -280,7 +288,7 @@ export function mapGeminiError(error: unknown): GeminiServiceError {
 
 function formatStudentContextBlock(ctx?: StudentContextPayload): string {
   if (!ctx) return 'No student profile context supplied.';
-  return [
+  const lines = [
     `Student: ${ctx.displayName ?? 'Scholar'}`,
     `Academic Track: ${ctx.academicTrack ?? 'Unspecified'} (${ctx.institution ?? 'University'}, Class of ${ctx.graduationYear ?? 'TBD'})`,
     `Target Career Pathway: ${ctx.selectedCareerTitle ?? 'General Technology'}`,
@@ -288,7 +296,19 @@ function formatStudentContextBlock(ctx?: StudentContextPayload): string {
     `Interests: ${(ctx.careerInterests ?? []).join(', ') || 'Unspecified'}`,
     `Skill Scores (0-100): ${ctx.skillScores ? JSON.stringify(ctx.skillScores) : 'Unavailable'}`,
     `Completed Milestones: ${(ctx.completedMilestones ?? []).join(', ') || 'None yet'}`,
-  ].join('\n');
+  ];
+  if (ctx.academicContext) {
+    const ac = ctx.academicContext;
+    lines.push(
+      `Active Academic Subject: ${ac.subjectName ?? 'Unspecified'} (${ac.subjectCategory ?? 'General'})`,
+      `Active Chapter / Topic: ${ac.chapterTitle ?? 'General'} — ${ac.topic ?? 'Core concepts'}`,
+      `Identified Weak Topics: ${(ac.weakTopics ?? []).join(', ') || 'None flagged'}`
+    );
+    if (ac.sourceExcerpt) {
+      lines.push(`Student Study Excerpt: ${ac.sourceExcerpt.slice(0, 2000)}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 export async function generateMentorResponse(
@@ -503,3 +523,372 @@ export async function generateAdaptiveRoadmap(
     milestones: Array.isArray(parsed.milestones) ? parsed.milestones.slice(0, 4) : [],
   };
 }
+
+export interface StudyMaterialRequestPayload {
+  subjectName: string;
+  subjectCategory: string;
+  chapterTitle?: string;
+  topic: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Exam Preparation';
+  format: string;
+  sourceMaterialExcerpt?: string;
+}
+
+export interface GeneratedStudyMaterialResponse {
+  title: string;
+  content: string;
+  keyDefinitions: string[];
+  formulasOrRules: string[];
+  realWorldExamples: string[];
+  practicePrompts: string[];
+  aiDisclaimer: string;
+}
+
+export async function generateStudyMaterial(
+  payload: StudyMaterialRequestPayload
+): Promise<GeneratedStudyMaterialResponse> {
+  const ai = getClient();
+  const subjectName = payload.subjectName.trim().slice(0, 140);
+  const topic = payload.topic.trim().slice(0, 140);
+  if (!subjectName || topic.length < 2) {
+    throw new GeminiServiceError(
+      'Subject name and topic (at least 2 characters) are required.',
+      400,
+      'INVALID_REQUEST'
+    );
+  }
+
+  const prompt = [
+    `Subject: ${subjectName} (${payload.subjectCategory})`,
+    `Chapter: ${payload.chapterTitle || 'General Subject Scope'}`,
+    `Topic: ${topic}`,
+    `Explanation Level: ${payload.level}`,
+    `Requested Learning Format: ${payload.format}`,
+    payload.sourceMaterialExcerpt
+      ? `Student Source Material Excerpt:\n${payload.sourceMaterialExcerpt.slice(0, 3500)}`
+      : 'No uploaded excerpt supplied; teach from established foundational principles of this topic.',
+  ].join('\n\n');
+
+  const response = await withTimeoutAndRetry(async () => {
+    return ai.models.generateContent({
+      model: 'gemini-4-hydrogen',
+      contents: prompt,
+      config: {
+        systemInstruction: [
+          'You are an academic study architect for SkillPath AI.',
+          'Generate accurate, crystal-clear educational material tailored strictly to the requested format and explanation level.',
+          'STRICT INTEGRITY RULES:',
+          '- Never invent textbook edition numbers, page numbers, ISBNs, or unverified official exam predictions.',
+          '- When source material is supplied, ground explanations faithfully in it without fabricating claims.',
+          '- Adapt depth cleanly to Beginner (intuitive analogies & foundational steps), Intermediate (structured mechanisms & worked reasoning), Advanced (rigorous proofs/edge cases), or Exam Preparation (high-yield revision & common traps).',
+        ].join('\n'),
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: {
+              type: Type.STRING,
+              description:
+                'Comprehensive formatted study content matching the requested learning format.',
+            },
+            keyDefinitions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            formulasOrRules: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            realWorldExamples: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            practicePrompts: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+          },
+          required: [
+            'title',
+            'content',
+            'keyDefinitions',
+            'formulasOrRules',
+            'realWorldExamples',
+            'practicePrompts',
+          ],
+        },
+      },
+    });
+  });
+
+  const parsed = JSON.parse((response.text ?? '{}').trim()) as Partial<GeneratedStudyMaterialResponse>;
+  return {
+    title: parsed.title || `${payload.format}: ${topic}`,
+    content: parsed.content || 'Unable to generate study content.',
+    keyDefinitions: Array.isArray(parsed.keyDefinitions) ? parsed.keyDefinitions.slice(0, 8) : [],
+    formulasOrRules: Array.isArray(parsed.formulasOrRules) ? parsed.formulasOrRules.slice(0, 8) : [],
+    realWorldExamples: Array.isArray(parsed.realWorldExamples)
+      ? parsed.realWorldExamples.slice(0, 5)
+      : [],
+    practicePrompts: Array.isArray(parsed.practicePrompts) ? parsed.practicePrompts.slice(0, 5) : [],
+    aiDisclaimer:
+      'AI-generated study material powered by Gemini. Cross-check critical formulas and definitions against your primary course syllabus.',
+  };
+}
+
+export interface AssessmentGenerationPayload {
+  subjectName: string;
+  subjectCategory: string;
+  chapterTitle?: string;
+  topics?: string[];
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Exam';
+  questionCount: number;
+  questionTypes: Array<
+    'mcq' | 'multiple_select' | 'short_answer' | 'long_answer' | 'numerical' | 'conceptual'
+  >;
+  sourceMaterialExcerpt?: string;
+}
+
+export interface GeneratedAcademicQuestion {
+  id: string;
+  type: 'mcq' | 'multiple_select' | 'short_answer' | 'long_answer' | 'numerical' | 'conceptual';
+  topic: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Exam';
+  prompt: string;
+  options?: string[];
+  correctOptionIndex?: number;
+  correctOptionIndices?: number[];
+  correctNumericalAnswer?: number;
+  numericalTolerance?: number;
+  referenceAnswer?: string;
+  keyPoints?: string[];
+  explanation: string;
+  aiGenerated: boolean;
+}
+
+export async function generateAcademicAssessment(
+  payload: AssessmentGenerationPayload
+): Promise<{ questions: GeneratedAcademicQuestion[]; aiNotice: string }> {
+  const ai = getClient();
+  const count = Math.max(2, Math.min(10, Math.round(payload.questionCount || 4)));
+  const types = payload.questionTypes.length > 0 ? payload.questionTypes : ['mcq'];
+
+  const prompt = [
+    `Subject: ${payload.subjectName} (${payload.subjectCategory})`,
+    `Chapter: ${payload.chapterTitle || 'General Subject Assessment'}`,
+    `Topics: ${(payload.topics ?? []).join(', ') || 'Core chapter concepts'}`,
+    `Difficulty: ${payload.difficulty}`,
+    `Total Questions: ${count}`,
+    `Allowed Question Types (cycle through these): ${types.join(', ')}`,
+    payload.sourceMaterialExcerpt
+      ? `Study Context Excerpt:\n${payload.sourceMaterialExcerpt.slice(0, 2500)}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const response = await withTimeoutAndRetry(async () => {
+    return ai.models.generateContent({
+      model: 'gemini-4-hydrogen',
+      contents: prompt,
+      config: {
+        systemInstruction: [
+          'You are an academic assessment designer.',
+          'Generate clear, rigorous, unambiguously solvable questions matching the requested subject, chapter, difficulty, and types.',
+          '- For `mcq`: include 4 `options` and valid 0-based `correctOptionIndex`.',
+          '- For `multiple_select`: include 4 `options` and 2+ valid 0-based `correctOptionIndices`.',
+          '- For `numerical`: include `correctNumericalAnswer` (number) and `numericalTolerance` (e.g., 0.05).',
+          '- For `short_answer`, `long_answer`, and `conceptual`: include `referenceAnswer` and 2-4 `keyPoints`.',
+          '- Always provide a concise, accurate `explanation` and `topic`.',
+        ].join('\n'),
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING },
+                  topic: { type: Type.STRING },
+                  prompt: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  correctOptionIndex: { type: Type.INTEGER },
+                  correctOptionIndices: { type: Type.ARRAY, items: { type: Type.INTEGER } },
+                  correctNumericalAnswer: { type: Type.NUMBER },
+                  numericalTolerance: { type: Type.NUMBER },
+                  referenceAnswer: { type: Type.STRING },
+                  keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  explanation: { type: Type.STRING },
+                },
+                required: ['type', 'topic', 'prompt', 'explanation'],
+              },
+            },
+          },
+          required: ['questions'],
+        },
+      },
+    });
+  });
+
+  const parsed = JSON.parse((response.text ?? '{}').trim()) as {
+    questions?: Array<Partial<GeneratedAcademicQuestion>>;
+  };
+  const validTypes = new Set([
+    'mcq',
+    'multiple_select',
+    'short_answer',
+    'long_answer',
+    'numerical',
+    'conceptual',
+  ]);
+
+  const normalized: GeneratedAcademicQuestion[] = (parsed.questions ?? [])
+    .slice(0, count)
+    .map((q, idx) => {
+      const qType =
+        typeof q.type === 'string' && validTypes.has(q.type)
+          ? (q.type as GeneratedAcademicQuestion['type'])
+          : 'mcq';
+
+      const options = Array.isArray(q.options) && q.options.length >= 2 ? q.options.slice(0, 5) : undefined;
+      const safeOptionCount = options?.length ?? 4;
+
+      return {
+        id: `ai-q-${Date.now()}-${idx}`,
+        type: qType,
+        topic: (q.topic || payload.chapterTitle || payload.subjectName).slice(0, 120),
+        difficulty: payload.difficulty,
+        prompt: q.prompt || `Question ${idx + 1}`,
+        options:
+          qType === 'mcq' || qType === 'multiple_select'
+            ? options ?? ['Option A', 'Option B', 'Option C', 'Option D']
+            : undefined,
+        correctOptionIndex:
+          qType === 'mcq'
+            ? Math.max(0, Math.min(safeOptionCount - 1, Number(q.correctOptionIndex) || 0))
+            : undefined,
+        correctOptionIndices:
+          qType === 'multiple_select'
+            ? Array.isArray(q.correctOptionIndices) && q.correctOptionIndices.length > 0
+              ? q.correctOptionIndices.filter((i) => i >= 0 && i < safeOptionCount)
+              : [0, 1]
+            : undefined,
+        correctNumericalAnswer:
+          qType === 'numerical' ? Number(q.correctNumericalAnswer ?? 0) : undefined,
+        numericalTolerance:
+          qType === 'numerical' ? Math.max(0.001, Number(q.numericalTolerance ?? 0.05)) : undefined,
+        referenceAnswer: q.referenceAnswer,
+        keyPoints: Array.isArray(q.keyPoints) ? q.keyPoints.slice(0, 5) : undefined,
+        explanation: q.explanation || 'Review the core concept definition and boundary assumptions.',
+        aiGenerated: true,
+      };
+    });
+
+  if (normalized.length === 0) {
+    throw new GeminiServiceError('Gemini returned no assessment questions.', 502, 'EMPTY_RESPONSE');
+  }
+
+  return {
+    questions: normalized,
+    aiNotice:
+      'Questions generated by AI for practice based on your selected subject and chapter. Verify against your syllabus.',
+  };
+}
+
+export interface SubjectiveEvaluationItemInput {
+  questionId: string;
+  prompt: string;
+  referenceAnswer?: string;
+  keyPoints?: string[];
+  studentAnswer: string;
+}
+
+export interface SubjectiveEvaluationItemResult {
+  questionId: string;
+  scoreRatio: number;
+  feedback: string;
+  needsHumanReview: boolean;
+}
+
+export async function evaluateSubjectiveAnswers(payload: {
+  subjectName: string;
+  items: SubjectiveEvaluationItemInput[];
+}): Promise<{ evaluations: SubjectiveEvaluationItemResult[]; disclaimer: string }> {
+  const ai = getClient();
+  const items = payload.items.slice(0, 15);
+  if (items.length === 0) {
+    return {
+      evaluations: [],
+      disclaimer: 'No subjective responses supplied.',
+    };
+  }
+
+  const prompt = [
+    `Subject: ${payload.subjectName}`,
+    'Evaluate each student written response fairly against the reference points on a 0.0 to 1.0 scale.',
+    JSON.stringify(items),
+  ].join('\n\n');
+
+  const response = await withTimeoutAndRetry(async () => {
+    return ai.models.generateContent({
+      model: 'gemini-4-hydrogen',
+      contents: prompt,
+      config: {
+        systemInstruction:
+          'You are an academic rubric coach. Score honestly from 0.0 to 1.0, highlight missing reasoning or assumptions concisely, and never inflate empty or vague answers.',
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            evaluations: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  questionId: { type: Type.STRING },
+                  scoreRatio: { type: Type.NUMBER },
+                  feedback: { type: Type.STRING },
+                },
+                required: ['questionId', 'scoreRatio', 'feedback'],
+              },
+            },
+          },
+          required: ['evaluations'],
+        },
+      },
+    });
+  });
+
+  const parsed = JSON.parse((response.text ?? '{}').trim()) as {
+    evaluations?: Array<{ questionId?: string; scoreRatio?: number; feedback?: string }>;
+  };
+
+  const evaluations: SubjectiveEvaluationItemResult[] = items.map((item) => {
+    const match = (parsed.evaluations ?? []).find((e) => e.questionId === item.questionId);
+    const ratio =
+      typeof match?.scoreRatio === 'number' && Number.isFinite(match.scoreRatio)
+        ? Math.max(0, Math.min(1, Number(match.scoreRatio.toFixed(2))))
+        : 0;
+    return {
+      questionId: item.questionId,
+      scoreRatio: ratio,
+      feedback:
+        match?.feedback ||
+        'AI-assisted provisional review completed. Confirm full reasoning with an instructor.',
+      needsHumanReview: true,
+    };
+  });
+
+  return {
+    evaluations,
+    disclaimer:
+      'AI-assisted evaluation provides provisional feedback on written explanations and should be confirmed by instructor/human review for formal grading.',
+  };
+}
+

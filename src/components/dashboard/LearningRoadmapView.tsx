@@ -3,6 +3,7 @@ import { BookOpen, Check, Sparkles } from 'lucide-react';
 import { SKILL_CATEGORIES } from '../../data/curriculum';
 import { auth } from '../../lib/firebase';
 import type { StudentProfile } from '../../types/skillpath';
+import { postJson } from '../../utils/apiClient';
 import {
   calculateOverallReadiness,
   calculateRoadmapProgress,
@@ -56,16 +57,15 @@ export function LearningRoadmapView({
     setAdaptiveLoading(true);
     setAdaptiveError(null);
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {};
       if (!isDemo && auth.currentUser) {
         const token = await auth.currentUser.getIdToken();
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const res = await fetch('/api/ai/roadmap-generate', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      const data = await postJson<AdaptiveRoadmapResult>(
+        '/api/ai/roadmap-generate',
+        {
           mode: isDemo ? 'demo' : 'live',
           studentContext: {
             displayName: profile.displayName,
@@ -80,14 +80,11 @@ export function LearningRoadmapView({
             completedMilestones: profile.completedMilestones,
             careerInterests: profile.careerInterests,
           },
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Unable to synthesize adaptive milestones.');
-      }
-      setAdaptiveResult(data as AdaptiveRoadmapResult);
+        },
+        headers,
+        'Unable to synthesize adaptive milestones.'
+      );
+      setAdaptiveResult(data);
     } catch (err) {
       setAdaptiveError(
         err instanceof Error ? err.message : 'Unable to reach Gemini roadmap synthesis.'

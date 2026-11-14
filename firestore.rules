@@ -42,6 +42,23 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/students/$(uid));
     }
 
+    function isValidSkillId(skillId) {
+      return skillId in [
+        'systems_architecture',
+        'applied_ml',
+        'algorithmic_reasoning',
+        'fullstack_engineering',
+        'quantitative_literacy',
+        'technical_communication'
+      ];
+    }
+
+    function isValidStringList(listVal, maxItems, maxItemLen) {
+      return listVal is list
+        && listVal.size() <= maxItems
+        && (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= maxItemLen));
+    }
+
     function isValidStudent(data) {
       return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'createdAt', 'updatedAt'])
         && data.keys().hasOnly([
@@ -61,22 +78,14 @@ service cloud.firestore {
         && (!('academicTrack' in data) || (data.academicTrack is string && data.academicTrack.size() <= 140))
         && (!('institution' in data) || (data.institution is string && data.institution.size() <= 160))
         && (!('graduationYear' in data) || (data.graduationYear is int && data.graduationYear >= 1990 && data.graduationYear <= 2045))
-        && (!('careerInterests' in data) || (
-          data.careerInterests is list
-          && data.careerInterests.size() <= 10
-          && (data.careerInterests.size() == 0 || (data.careerInterests[0] is string && data.careerInterests[0].size() <= 60))
-        ))
+        && (!('careerInterests' in data) || isValidStringList(data.careerInterests, 10, 60))
         && (!('selectedCareerId' in data) || (
           data.selectedCareerId is string
           && data.selectedCareerId.size() <= 80
           && data.selectedCareerId.matches('^[a-zA-Z0-9_\\-]*$')
         ))
         && (!('skillScores' in data) || (data.skillScores is map && data.skillScores.size() <= 25))
-        && (!('completedMilestones' in data) || (
-          data.completedMilestones is list
-          && data.completedMilestones.size() <= 40
-          && (data.completedMilestones.size() == 0 || (data.completedMilestones[0] is string && data.completedMilestones[0].size() <= 80))
-        ))
+        && (!('completedMilestones' in data) || isValidStringList(data.completedMilestones, 40, 80))
         && (!('learningGoals' in data) || (
           data.learningGoals is list
           && data.learningGoals.size() <= 15
@@ -117,6 +126,135 @@ service cloud.firestore {
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
         && data.createdAt is timestamp
         && (!('detail' in data) || (data.detail is string && data.detail.size() <= 400));
+    }
+
+    function isValidAcademicSubject(data) {
+      return data.keys().hasAll(['uid', 'name', 'category', 'linkedSkillId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'category', 'description', 'linkedSkillId', 'examDate', 'targetGrade', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 140
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 60
+        && isValidSkillId(data.linkedSkillId)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('description' in data) || (data.description is string && data.description.size() <= 600))
+        && (!('examDate' in data) || (data.examDate is string && data.examDate.size() <= 32))
+        && (!('targetGrade' in data) || (data.targetGrade is string && data.targetGrade.size() <= 24));
+    }
+
+    function isValidAcademicChapter(data) {
+      return data.keys().hasAll(['uid', 'subjectId', 'orderIndex', 'title', 'completed', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'subjectId', 'orderIndex', 'title', 'topics', 'learningObjectives', 'importantConcepts', 'completed', 'estimatedHours', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && isValidId(data.subjectId)
+        && data.orderIndex is int && data.orderIndex >= 1 && data.orderIndex <= 200
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.completed is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('topics' in data) || isValidStringList(data.topics, 25, 120))
+        && (!('learningObjectives' in data) || isValidStringList(data.learningObjectives, 20, 220))
+        && (!('importantConcepts' in data) || isValidStringList(data.importantConcepts, 25, 220))
+        && (!('estimatedHours' in data) || (data.estimatedHours is number && data.estimatedHours >= 0 && data.estimatedHours <= 100));
+    }
+
+    function isValidStudyMaterial(data) {
+      return data.keys().hasAll(['uid', 'subjectId', 'topic', 'title', 'format', 'level', 'content', 'sourceType', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid', 'subjectId', 'chapterId', 'topic', 'title', 'format', 'level',
+          'content', 'externalUrl', 'fileName', 'fileSizeBytes', 'sourceType', 'aiDisclaimer', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && isValidId(data.subjectId)
+        && data.topic is string && data.topic.size() >= 1 && data.topic.size() <= 140
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.format is string && data.format.size() >= 1 && data.format.size() <= 60
+        && data.level is string && data.level.size() >= 1 && data.level.size() <= 40
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 20000
+        && data.sourceType in ['student_upload', 'student_note', 'ai_generated']
+        && data.createdAt is timestamp
+        && (!('chapterId' in data) || (data.chapterId is string && data.chapterId.size() <= 128))
+        && (!('externalUrl' in data) || (data.externalUrl is string && data.externalUrl.size() <= 1024))
+        && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 200))
+        && (!('fileSizeBytes' in data) || (data.fileSizeBytes is int && data.fileSizeBytes >= 0 && data.fileSizeBytes <= 204800))
+        && (!('aiDisclaimer' in data) || (data.aiDisclaimer is string && data.aiDisclaimer.size() <= 400));
+    }
+
+    function isValidAcademicAssessment(data) {
+      return data.keys().hasAll([
+          'uid', 'subjectId', 'subjectName', 'linkedSkillId', 'mode', 'difficulty',
+          'totalQuestions', 'correctCount', 'scorePercent', 'durationMinutes',
+          'requiresHumanReview', 'weakTopics', 'reviews', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'subjectId', 'subjectName', 'chapterId', 'chapterTitle',
+          'linkedSkillId', 'mode', 'difficulty', 'totalQuestions', 'correctCount',
+          'scorePercent', 'durationMinutes', 'requiresHumanReview', 'weakTopics', 'reviews', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && isValidId(data.subjectId)
+        && data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 140
+        && isValidSkillId(data.linkedSkillId)
+        && data.mode in ['chapter_test', 'subject_test', 'timed_practice']
+        && data.difficulty in ['Beginner', 'Intermediate', 'Advanced', 'Exam']
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 50
+        && data.correctCount is int && data.correctCount >= 0 && data.correctCount <= data.totalQuestions
+        && data.scorePercent is number && data.scorePercent >= 0 && data.scorePercent <= 100
+        && data.durationMinutes is number && data.durationMinutes >= 0 && data.durationMinutes <= 300
+        && data.requiresHumanReview is bool
+        && isValidStringList(data.weakTopics, 25, 140)
+        && data.reviews is list && data.reviews.size() >= 1 && data.reviews.size() <= 50 && data.reviews[0] is map
+        && data.createdAt is timestamp
+        && (!('chapterId' in data) || (data.chapterId is string && data.chapterId.size() <= 128))
+        && (!('chapterTitle' in data) || (data.chapterTitle is string && data.chapterTitle.size() <= 180));
+    }
+
+    function isValidStudySession(data) {
+      return data.keys().hasAll([
+          'uid', 'subjectId', 'subjectName', 'title', 'sessionType',
+          'scheduledDate', 'durationMinutes', 'completed', 'priority', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'subjectId', 'subjectName', 'chapterId', 'chapterTitle', 'title',
+          'sessionType', 'scheduledDate', 'durationMinutes', 'completed', 'priority', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && isValidId(data.subjectId)
+        && data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 140
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.sessionType in ['study', 'revision', 'exam_prep', 'practice']
+        && data.scheduledDate is string && data.scheduledDate.size() >= 4 && data.scheduledDate.size() <= 32
+        && data.durationMinutes is int && data.durationMinutes >= 5 && data.durationMinutes <= 480
+        && data.completed is bool
+        && data.priority in ['recommended', 'standard']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('chapterId' in data) || (data.chapterId is string && data.chapterId.size() <= 128))
+        && (!('chapterTitle' in data) || (data.chapterTitle is string && data.chapterTitle.size() <= 180));
+    }
+
+    function isValidAcademicProgress(data) {
+      return data.keys().hasAll([
+          'uid', 'subjectId', 'subjectName', 'linkedSkillId', 'assessmentsCompleted',
+          'averageAccuracy', 'latestScorePercent', 'completedChapters', 'totalChapters',
+          'weakTopics', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'subjectId', 'subjectName', 'linkedSkillId', 'assessmentsCompleted',
+          'averageAccuracy', 'latestScorePercent', 'completedChapters', 'totalChapters',
+          'weakTopics', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && isValidId(data.subjectId)
+        && data.subjectName is string && data.subjectName.size() >= 1 && data.subjectName.size() <= 140
+        && isValidSkillId(data.linkedSkillId)
+        && data.assessmentsCompleted is int && data.assessmentsCompleted >= 0 && data.assessmentsCompleted <= 5000
+        && data.averageAccuracy is number && data.averageAccuracy >= 0 && data.averageAccuracy <= 100
+        && data.latestScorePercent is number && data.latestScorePercent >= 0 && data.latestScorePercent <= 100
+        && data.completedChapters is int && data.completedChapters >= 0 && data.completedChapters <= 500
+        && data.totalChapters is int && data.totalChapters >= 0 && data.totalChapters <= 500
+        && isValidStringList(data.weakTopics, 25, 140)
+        && data.updatedAt is timestamp;
     }
 
     match /admins/{uid} {
@@ -208,6 +346,145 @@ service cloud.firestore {
           && hasParentStudent(uid);
         allow update: if false;
         allow delete: if isValidId(uid) && isValidId(activityId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /subjects/{subjectId} {
+        allow get: if isValidId(uid) && isValidId(subjectId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(subjectId)
+          && isValidAcademicSubject(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasParentStudent(uid);
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(subjectId)
+          && isValidAcademicSubject(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'description', 'linkedSkillId', 'examDate', 'targetGrade', 'updatedAt']);
+        allow delete: if isValidId(uid) && isValidId(subjectId) && (isOwner(uid) || isAdmin());
+
+        match /chapters/{chapterId} {
+          allow get: if isValidId(uid) && isValidId(subjectId) && isValidId(chapterId) && (isOwner(uid) || isAdmin());
+          allow list: if isOwner(uid) || isAdmin();
+          allow create: if isSignedIn()
+            && isValidId(uid)
+            && isValidId(subjectId)
+            && isValidId(chapterId)
+            && isValidAcademicChapter(incoming())
+            && (isOwner(uid) || isAdmin())
+            && incoming().uid == uid
+            && incoming().subjectId == subjectId
+            && incoming().createdAt == request.time
+            && incoming().updatedAt == request.time
+            && exists(/databases/$(database)/documents/students/$(uid)/subjects/$(subjectId));
+          allow update: if isSignedIn()
+            && isValidId(uid)
+            && isValidId(subjectId)
+            && isValidId(chapterId)
+            && isValidAcademicChapter(incoming())
+            && (isOwner(uid) || isAdmin())
+            && incoming().uid == existing().uid
+            && incoming().subjectId == existing().subjectId
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'orderIndex', 'title', 'topics', 'learningObjectives', 'importantConcepts',
+              'completed', 'estimatedHours', 'updatedAt'
+            ]);
+          allow delete: if isValidId(uid) && isValidId(subjectId) && isValidId(chapterId) && (isOwner(uid) || isAdmin());
+        }
+      }
+
+      match /studyMaterials/{materialId} {
+        allow get: if isValidId(uid) && isValidId(materialId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(materialId)
+          && isValidStudyMaterial(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && hasParentStudent(uid);
+        allow update: if false;
+        allow delete: if isValidId(uid) && isValidId(materialId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /academicAssessments/{assessmentId} {
+        allow get: if isValidId(uid) && isValidId(assessmentId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(assessmentId)
+          && isValidAcademicAssessment(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && hasParentStudent(uid);
+        allow update: if false;
+        allow delete: if isValidId(uid) && isValidId(assessmentId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /studySessions/{sessionId} {
+        allow get: if isValidId(uid) && isValidId(sessionId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(sessionId)
+          && isValidStudySession(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasParentStudent(uid);
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(sessionId)
+          && isValidStudySession(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == existing().uid
+          && incoming().subjectId == existing().subjectId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'sessionType', 'scheduledDate', 'durationMinutes', 'completed',
+            'priority', 'chapterId', 'chapterTitle', 'updatedAt'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(sessionId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /academicProgress/{progressId} {
+        allow get: if isValidId(uid) && isValidId(progressId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(progressId)
+          && isValidAcademicProgress(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().updatedAt == request.time
+          && hasParentStudent(uid);
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(progressId)
+          && isValidAcademicProgress(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == existing().uid
+          && incoming().subjectId == existing().subjectId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'subjectName', 'linkedSkillId', 'assessmentsCompleted', 'averageAccuracy',
+            'latestScorePercent', 'completedChapters', 'totalChapters', 'weakTopics', 'updatedAt'
+          ]);
+        allow delete: if isValidId(uid) && isValidId(progressId) && (isOwner(uid) || isAdmin());
       }
     }
   }

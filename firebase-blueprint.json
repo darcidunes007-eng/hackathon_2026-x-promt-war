@@ -189,6 +189,139 @@
       },
       "required": ["uid", "category", "title", "createdAt"]
     },
+    "AcademicSubject": {
+      "title": "AcademicSubject",
+      "description": "Academic subject managed inside the Academic Learning Centre.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "category": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 600 },
+        "linkedSkillId": { "type": "string", "maxLength": 60 },
+        "examDate": { "type": "string", "maxLength": 32 },
+        "targetGrade": { "type": "string", "maxLength": 24 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "category", "linkedSkillId", "createdAt", "updatedAt"]
+    },
+    "AcademicChapter": {
+      "title": "AcademicChapter",
+      "description": "Chapter inside an academic subject workspace.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderIndex": { "type": "integer" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "topics": { "type": "array" },
+        "learningObjectives": { "type": "array" },
+        "importantConcepts": { "type": "array" },
+        "completed": { "type": "boolean" },
+        "estimatedHours": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "subjectId", "orderIndex", "title", "completed", "createdAt", "updatedAt"]
+    },
+    "StudyMaterial": {
+      "title": "StudyMaterial",
+      "description": "Student uploaded resource, personal note, or AI-generated study material.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "chapterId": { "type": "string", "maxLength": 128 },
+        "topic": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "format": { "type": "string", "maxLength": 60 },
+        "level": { "type": "string", "maxLength": 40 },
+        "content": { "type": "string", "maxLength": 20000 },
+        "externalUrl": { "type": "string", "maxLength": 1024 },
+        "fileName": { "type": "string", "maxLength": 200 },
+        "fileSizeBytes": { "type": "integer" },
+        "sourceType": { "type": "string", "enum": ["student_upload", "student_note", "ai_generated"] },
+        "aiDisclaimer": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "subjectId", "topic", "title", "format", "level", "content", "sourceType", "createdAt"]
+    },
+    "AcademicAssessment": {
+      "title": "AcademicAssessment",
+      "description": "Completed academic subject or chapter assessment with question-by-question review.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subjectName": { "type": "string", "maxLength": 140 },
+        "chapterId": { "type": "string", "maxLength": 128 },
+        "chapterTitle": { "type": "string", "maxLength": 180 },
+        "linkedSkillId": { "type": "string", "maxLength": 60 },
+        "mode": { "type": "string", "enum": ["chapter_test", "subject_test", "timed_practice"] },
+        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced", "Exam"] },
+        "totalQuestions": { "type": "integer" },
+        "correctCount": { "type": "integer" },
+        "scorePercent": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "requiresHumanReview": { "type": "boolean" },
+        "weakTopics": { "type": "array" },
+        "reviews": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid", "subjectId", "subjectName", "linkedSkillId", "mode", "difficulty",
+        "totalQuestions", "correctCount", "scorePercent", "durationMinutes",
+        "requiresHumanReview", "weakTopics", "reviews", "createdAt"
+      ]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Scheduled study or revision block inside the personalized study planner.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subjectName": { "type": "string", "maxLength": 140 },
+        "chapterId": { "type": "string", "maxLength": 128 },
+        "chapterTitle": { "type": "string", "maxLength": 180 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "sessionType": { "type": "string", "enum": ["study", "revision", "exam_prep", "practice"] },
+        "scheduledDate": { "type": "string", "maxLength": 32 },
+        "durationMinutes": { "type": "integer" },
+        "completed": { "type": "boolean" },
+        "priority": { "type": "string", "enum": ["recommended", "standard"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid", "subjectId", "subjectName", "title", "sessionType",
+        "scheduledDate", "durationMinutes", "completed", "priority", "createdAt", "updatedAt"
+      ]
+    },
+    "AcademicProgress": {
+      "title": "AcademicProgress",
+      "description": "Aggregated subject progress record updated after verified assessments.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subjectName": { "type": "string", "maxLength": 140 },
+        "linkedSkillId": { "type": "string", "maxLength": 60 },
+        "assessmentsCompleted": { "type": "integer" },
+        "averageAccuracy": { "type": "number" },
+        "latestScorePercent": { "type": "number" },
+        "completedChapters": { "type": "integer" },
+        "totalChapters": { "type": "integer" },
+        "weakTopics": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid", "subjectId", "subjectName", "linkedSkillId", "assessmentsCompleted",
+        "averageAccuracy", "latestScorePercent", "completedChapters", "totalChapters",
+        "weakTopics", "updatedAt"
+      ]
+    },
     "AdminRegistry": {
       "title": "AdminRegistry",
       "description": "Trusted administrator lookup document keyed by Firebase Auth UID.",
@@ -228,6 +361,30 @@
     "/students/{uid}/activity/{activityId}": {
       "schema": { "$ref": "#/entities/StudentActivity" },
       "description": "Persisted learning activity logs for student {uid}."
+    },
+    "/students/{uid}/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/AcademicSubject" },
+      "description": "Academic subjects managed by student {uid}."
+    },
+    "/students/{uid}/subjects/{subjectId}/chapters/{chapterId}": {
+      "schema": { "$ref": "#/entities/AcademicChapter" },
+      "description": "Chapters inside a subject workspace owned by student {uid}."
+    },
+    "/students/{uid}/studyMaterials/{materialId}": {
+      "schema": { "$ref": "#/entities/StudyMaterial" },
+      "description": "Uploaded study resources, personal notes, and AI study materials for student {uid}."
+    },
+    "/students/{uid}/academicAssessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/AcademicAssessment" },
+      "description": "Detailed academic test results and reviews for student {uid}."
+    },
+    "/students/{uid}/studySessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/StudySession" },
+      "description": "Personalized study planner sessions for student {uid}."
+    },
+    "/students/{uid}/academicProgress/{progressId}": {
+      "schema": { "$ref": "#/entities/AcademicProgress" },
+      "description": "Subject-level academic progress metrics synchronized with Skill Analysis."
     },
     "/admins/{uid}": {
       "schema": { "$ref": "#/entities/AdminRegistry" },
