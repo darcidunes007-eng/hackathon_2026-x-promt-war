@@ -5,6 +5,7 @@ import type {
   SkillCategoryId,
   StudentProfile,
 } from '../types/skillpath';
+import avatarStudentDefault from '../assets/images/avatar_student_default_1794636560220.jpg';
 
 export const SKILL_CATEGORIES: SkillCategoryDefinition[] = [
   {
@@ -447,7 +448,7 @@ export const DEMO_STUDENT_PROFILE: StudentProfile = {
   uid: 'demo-elena-vance',
   displayName: 'Elena Vance',
   email: 'elena.vance@university.edu',
-  photoURL: '/src/assets/images/avatar_student_default_1794636560220.jpg',
+  photoURL: avatarStudentDefault,
   role: 'student',
   academicTrack: 'B.S. Computer Science & Applied Mathematics',
   institution: 'Pacific Institute of Technology',

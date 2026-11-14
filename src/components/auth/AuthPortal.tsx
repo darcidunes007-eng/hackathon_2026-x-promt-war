@@ -67,7 +67,10 @@ export function AuthPortal({
     setPopupBlocked(false);
     setGoogleLoading(true);
     try {
-      await authPersistenceReady;
+      // Open the popup synchronously inside the click handler. Awaiting anything
+      // first (e.g. persistence setup) drops the browser's user-gesture context,
+      // and Safari/mobile/Chrome then silently block the Google window.
+      // Firebase Auth already queues this behind the pending setPersistence call.
       await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
     } catch (err) {
       const code = (err as AuthError)?.code || '';
