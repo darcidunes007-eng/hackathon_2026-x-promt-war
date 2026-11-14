@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { DashboardTab, StudentProfile } from '../../types/skillpath';
 import { Button, ResilientImage } from '../ui/DesignSystem';
+import avatarStudentDefault from '../../assets/images/avatar_student_default_1794636560220.jpg';
 
 interface DashboardShellProps {
   activeTab: DashboardTab;
@@ -126,7 +127,7 @@ export function DashboardShell({
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[rgba(212,175,112,0.28)] bg-[#171821]">
             <ResilientImage
-              src={profile.photoURL || '/src/assets/images/avatar_student_default_1794636560220.jpg'}
+              src={profile.photoURL || avatarStudentDefault}
               alt={`${profile.displayName} profile portrait`}
               fallbackTitle={profile.displayName.slice(0, 2).toUpperCase()}
               className="h-full w-full object-cover"

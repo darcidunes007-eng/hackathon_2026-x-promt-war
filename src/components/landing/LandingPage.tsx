@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { ArrowRight, Compass, Layers, ShieldCheck, Sparkles } from 'lucide-react';
 import { CAREER_PATHWAYS } from '../../data/curriculum';
 import { Button, ProgressBar, ResilientImage, SurfaceCard } from '../ui/DesignSystem';
+import heroBotanicalAtelier from '../../assets/images/hero_botanical_atelier_1794636558951.jpg';
+import featureSkillArchitecture from '../../assets/images/feature_skill_architecture_1794636558572.jpg';
+import featureBotanicalPathway from '../../assets/images/feature_botanical_pathway_1794636559515.jpg';
 
 interface LandingPageProps {
   isAuthenticated: boolean;
@@ -125,7 +128,7 @@ export function LandingPage({
             <div className="lg:col-span-6">
               <div className="relative h-full min-h-[340px] overflow-hidden rounded-xl border border-[rgba(212,175,112,0.22)] bg-[#11121A]">
                 <ResilientImage
-                  src="/src/assets/images/hero_botanical_atelier_1794636558951.jpg"
+                  src={heroBotanicalAtelier}
                   alt="Midnight architectural study atelier illuminated by warm champagne lighting"
                   fallbackTitle="Midnight Study Atelier"
                   className="h-full w-full object-cover"
@@ -210,7 +213,7 @@ export function LandingPage({
                 </div>
                 <div className="min-h-[240px] bg-[#11121A]">
                   <ResilientImage
-                    src="/src/assets/images/feature_skill_architecture_1794636558572.jpg"
+                    src={featureSkillArchitecture}
                     alt="Precision brushed champagne-gold drafting instruments on dark obsidian slate"
                     fallbackTitle="Precision Diagnostics"
                     className="h-full w-full object-cover"
@@ -264,7 +267,7 @@ export function LandingPage({
               <div className="grid h-full grid-cols-1 md:grid-cols-2">
                 <div className="min-h-[240px] bg-[#11121A]">
                   <ResilientImage
-                    src="/src/assets/images/feature_botanical_pathway_1794636559515.jpg"
+                    src={featureBotanicalPathway}
                     alt="Fine-art dark botanical foliage illuminated by subtle champagne-gold light"
                     fallbackTitle="Organic Progression"
                     className="h-full w-full object-cover"
