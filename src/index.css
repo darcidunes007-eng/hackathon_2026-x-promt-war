@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-primary: #090A0F;
+    --bg-secondary: #11121A;
+    --bg-card: #171821;
+    --bg-elevated: #20212B;
+    --gold-primary: #D4AF70;
+    --gold-highlight: #F5D78E;
+    --gold-muted: #A88A59;
+    --text-primary: #F7F3EA;
+    --text-secondary: #AAA6A0;
+    --border-gold: rgba(212, 175, 112, 0.18);
+    --cursor-x: 50vw;
+    --cursor-y: 35vh;
+  }
+
+  html {
+    background-color: #090A0F;
+    color: #F7F3EA;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #090A0F;
+    color: #F7F3EA;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono-tabular {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom scrollbar for dark luxury surfaces */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090A0F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 112, 0.22);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 112, 0.38);
+}
+
+/* Cursor hiding only when desktop fine pointer custom cursor is active */
+@media (hover: hover) and (pointer: fine) {
+  body.custom-cursor-active,
+  body.custom-cursor-active a,
+  body.custom-cursor-active button,
+  body.custom-cursor-active [role="button"] {
+    cursor: none;
+  }
+
+  body.custom-cursor-active input,
+  body.custom-cursor-active textarea,
+  body.custom-cursor-active select {
+    cursor: text;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  body.custom-cursor-active,
+  body.custom-cursor-active a,
+  body.custom-cursor-active button,
+  body.custom-cursor-active [role="button"] {
+    cursor: auto;
+  }
+}

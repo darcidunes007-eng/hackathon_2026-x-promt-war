@@ -1,0 +1,8 @@
+{
+  "name": "SkillPath AI",
+  "description": "Precision academic intelligence, skill diagnostics, adaptive learning roadmaps, and Gemini-powered multi-agent mentorship.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

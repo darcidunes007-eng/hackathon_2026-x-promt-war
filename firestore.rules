@@ -1,0 +1,214 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'vidhyashalini5@gmail.com'
+      );
+    }
+
+    function hasParentStudent(uid) {
+      return exists(/databases/$(database)/documents/students/$(uid));
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL', 'role',
+          'academicTrack', 'institution', 'graduationYear',
+          'careerInterests', 'selectedCareerId', 'skillScores',
+          'completedMilestones', 'learningGoals', 'weeklyStudyHours',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && data.role in ['student', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024))
+        && (!('academicTrack' in data) || (data.academicTrack is string && data.academicTrack.size() <= 140))
+        && (!('institution' in data) || (data.institution is string && data.institution.size() <= 160))
+        && (!('graduationYear' in data) || (data.graduationYear is int && data.graduationYear >= 1990 && data.graduationYear <= 2045))
+        && (!('careerInterests' in data) || (
+          data.careerInterests is list
+          && data.careerInterests.size() <= 10
+          && (data.careerInterests.size() == 0 || (data.careerInterests[0] is string && data.careerInterests[0].size() <= 60))
+        ))
+        && (!('selectedCareerId' in data) || (
+          data.selectedCareerId is string
+          && data.selectedCareerId.size() <= 80
+          && data.selectedCareerId.matches('^[a-zA-Z0-9_\\-]*$')
+        ))
+        && (!('skillScores' in data) || (data.skillScores is map && data.skillScores.size() <= 25))
+        && (!('completedMilestones' in data) || (
+          data.completedMilestones is list
+          && data.completedMilestones.size() <= 40
+          && (data.completedMilestones.size() == 0 || (data.completedMilestones[0] is string && data.completedMilestones[0].size() <= 80))
+        ))
+        && (!('learningGoals' in data) || (
+          data.learningGoals is list
+          && data.learningGoals.size() <= 15
+          && (data.learningGoals.size() == 0 || data.learningGoals[0] is map)
+        ))
+        && (!('weeklyStudyHours' in data) || (
+          data.weeklyStudyHours is number && data.weeklyStudyHours >= 0 && data.weeklyStudyHours <= 120
+        ));
+    }
+
+    function isValidAssessment(data) {
+      return data.keys().hasAll(['uid', 'overallScore', 'categoryScores', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'overallScore', 'categoryScores', 'summaryNote', 'createdAt'])
+        && isValidId(data.uid)
+        && data.overallScore is number && data.overallScore >= 0 && data.overallScore <= 100
+        && data.categoryScores is map && data.categoryScores.size() <= 20
+        && data.createdAt is timestamp
+        && (!('summaryNote' in data) || (data.summaryNote is string && data.summaryNote.size() <= 600));
+    }
+
+    function isValidMentorSession(data) {
+      return data.keys().hasAll(['uid', 'agentRole', 'title', 'messages', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'agentRole', 'title', 'messages', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.agentRole in ['orchestrator', 'career_strategist', 'curriculum_architect', 'technical_tutor', 'assessment_coach']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.messages is list && data.messages.size() <= 60
+        && (data.messages.size() == 0 || data.messages[0] is map)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['uid', 'category', 'title', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'category', 'title', 'detail', 'createdAt'])
+        && isValidId(data.uid)
+        && data.category in ['roadmap', 'assessment', 'career', 'mentor', 'profile']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.createdAt is timestamp
+        && (!('detail' in data) || (data.detail is string && data.detail.size() <= 400));
+    }
+
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /students/{uid} {
+      allow get: if isValidId(uid) && (isOwner(uid) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(uid)
+        && isValidStudent(incoming())
+        && isOwner(uid)
+        && incoming().uid == request.auth.uid
+        && incoming().role == 'student'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(uid)
+        && isValidStudent(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            isOwner(uid)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'photoURL', 'academicTrack', 'institution',
+              'graduationYear', 'careerInterests', 'selectedCareerId',
+              'skillScores', 'completedMilestones', 'learningGoals',
+              'weeklyStudyHours', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(uid) && isAdmin();
+
+      match /assessments/{assessmentId} {
+        allow get: if isValidId(uid) && isValidId(assessmentId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(assessmentId)
+          && isValidAssessment(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && hasParentStudent(uid);
+        allow update: if false;
+        allow delete: if isValidId(uid) && isValidId(assessmentId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /mentorSessions/{sessionId} {
+        allow get: if isValidId(uid) && isValidId(sessionId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(sessionId)
+          && isValidMentorSession(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && hasParentStudent(uid);
+        allow update: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(sessionId)
+          && isValidMentorSession(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['agentRole', 'title', 'messages', 'updatedAt']);
+        allow delete: if isValidId(uid) && isValidId(sessionId) && (isOwner(uid) || isAdmin());
+      }
+
+      match /activity/{activityId} {
+        allow get: if isValidId(uid) && isValidId(activityId) && (isOwner(uid) || isAdmin());
+        allow list: if isOwner(uid) || isAdmin();
+        allow create: if isSignedIn()
+          && isValidId(uid)
+          && isValidId(activityId)
+          && isValidActivity(incoming())
+          && (isOwner(uid) || isAdmin())
+          && incoming().uid == uid
+          && incoming().createdAt == request.time
+          && hasParentStudent(uid);
+        allow update: if false;
+        allow delete: if isValidId(uid) && isValidId(activityId) && (isOwner(uid) || isAdmin());
+      }
+    }
+  }
+}

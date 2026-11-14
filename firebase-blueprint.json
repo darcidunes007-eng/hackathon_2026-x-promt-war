@@ -1,0 +1,237 @@
+{
+  "entities": {
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Private student academic profile, skill telemetry, career pathway, and roadmap state.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID matching document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Full display name of the student."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "Student email address (PII)."
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Profile avatar URL."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student", "admin"],
+          "description": "Server-validated role; self-registration always initializes as student."
+        },
+        "academicTrack": {
+          "type": "string",
+          "maxLength": 140,
+          "description": "Degree program or academic concentration."
+        },
+        "institution": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "University or academic institution."
+        },
+        "graduationYear": {
+          "type": "integer",
+          "description": "Expected graduation year."
+        },
+        "careerInterests": {
+          "type": "array",
+          "description": "Bounded list of up to 10 career focus tags."
+        },
+        "selectedCareerId": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identifier of active target career pathway."
+        },
+        "skillScores": {
+          "type": "object",
+          "description": "Map of skill category IDs to numeric proficiency 0..100."
+        },
+        "completedMilestones": {
+          "type": "array",
+          "description": "Bounded list of up to 40 completed milestone IDs."
+        },
+        "learningGoals": {
+          "type": "array",
+          "description": "Bounded list of up to 15 structured learning goal objects."
+        },
+        "weeklyStudyHours": {
+          "type": "number",
+          "description": "Target weekly study hours."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of profile creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SkillAssessment": {
+      "title": "SkillAssessment",
+      "description": "Timestamped skill diagnostic snapshot for historical progress tracking.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "overallScore": {
+          "type": "number"
+        },
+        "categoryScores": {
+          "type": "object"
+        },
+        "summaryNote": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "overallScore", "categoryScores", "createdAt"]
+    },
+    "MentorSession": {
+      "title": "MentorSession",
+      "description": "Multi-agent AI Mentor conversation session.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "agentRole": {
+          "type": "string",
+          "enum": ["orchestrator", "career_strategist", "curriculum_architect", "technical_tutor", "assessment_coach"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "messages": {
+          "type": "array",
+          "description": "Bounded conversation turns (max 60)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "agentRole", "title", "messages", "createdAt", "updatedAt"]
+    },
+    "StudentActivity": {
+      "title": "StudentActivity",
+      "description": "Student learning and milestone activity log entry.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["roadmap", "assessment", "career", "mentor", "profile"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "category", "title", "createdAt"]
+    },
+    "AdminRegistry": {
+      "title": "AdminRegistry",
+      "description": "Trusted administrator lookup document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "grantedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/students/{uid}": {
+      "schema": { "$ref": "#/entities/StudentProfile" },
+      "description": "Private student profile and learning state owned by {uid} or readable/manageable by verified administrators."
+    },
+    "/students/{uid}/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/SkillAssessment" },
+      "description": "Historical skill assessment records for student {uid}."
+    },
+    "/students/{uid}/mentorSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/MentorSession" },
+      "description": "Persisted AI Mentor sessions for student {uid}."
+    },
+    "/students/{uid}/activity/{activityId}": {
+      "schema": { "$ref": "#/entities/StudentActivity" },
+      "description": "Persisted learning activity logs for student {uid}."
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminRegistry" },
+      "description": "Authoritative administrator membership documents."
+    }
+  }
+}
